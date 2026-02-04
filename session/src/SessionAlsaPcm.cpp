@@ -26,8 +26,8 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
- * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -2627,7 +2627,7 @@ int SessionAlsaPcm::setECRef(Stream *s, std::shared_ptr<Device> rx_dev, bool is_
 
     rxDevInfo.isExternalECRefEnabledFlag = 0;
     if (rx_dev) {
-        status = rx_dev->getDeviceAttributes(&rxDevAttr);
+        status = rx_dev->getDeviceAttributes(&rxDevAttr, s);
         if (status != 0) {
             PAL_ERR(LOG_TAG," get device attributes failed");
             goto exit;
@@ -2638,7 +2638,7 @@ int SessionAlsaPcm::setECRef(Stream *s, std::shared_ptr<Device> rx_dev, bool is_
         rxDevAttr.id = ecRefDevId;
         rx_dev = Device::getInstance(&rxDevAttr, rm);
         if (rx_dev) {
-            status = rx_dev->getDeviceAttributes(&rxDevAttr);
+            status = rx_dev->getDeviceAttributes(&rxDevAttr, s);
             if (status) {
                 PAL_ERR(LOG_TAG, "getDeviceAttributes failed for ec dev: %d", ecRefDevId);
                 goto exit;
@@ -3243,7 +3243,12 @@ void SessionAlsaPcm::retryOpenWithoutEC(Stream *s, unsigned int pcm_flags, struc
 
      status = pcm_mmap_get_hw_ptr(pcm, (unsigned int *)&position->position_frames, &ts);
      if (status < 0) {
-         status = -errno;
+         /* returning errno for every failure here is erronious */
+         /* as errno can be changed by any service/thread       */
+         /* system wide. Hence returning ENXIO - no device      */
+         /* available which turned out to be no timestamp data  */
+         /* is available yet.                                   */
+         status = -ENXIO;
          PAL_ERR(LOG_TAG, "%d", status);
          return status;
      }
